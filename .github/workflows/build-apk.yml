@@ -44,6 +44,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''   # ডিফল্ট 'tools' প্যাকেজ আর নেই, তাই খালি রাখা হলো
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
