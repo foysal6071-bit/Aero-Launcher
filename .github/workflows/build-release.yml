@@ -1,0 +1,63 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          mkdir -p work
+          unzip -q Aero-Launcher.zip -d work
+          PROJ=$(find work -name settings.gradle.kts -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
+          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
+          echo "Project dir: $PROJ"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build release APK
+        working-directory: ${{ env.PROJ }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Prepare APK
+        run: |
+          APK=$(find "$PROJ" -path "*outputs/apk/release/*.apk" | head -n 1)
+          mkdir -p dist
+          cp "$APK" dist/Aero-Launcher.apk
+          VERSION=$(grep -m1 versionName "$PROJ/app/build.gradle.kts" | sed 's/.*"\(.*\)".*/\1/')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aero-Launcher-apk
+          path: dist/Aero-Launcher.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}-${{ github.run_number }}
+          name: Aero Launcher v${{ env.VERSION }} (build ${{ github.run_number }})
+          files: dist/Aero-Launcher.apk
